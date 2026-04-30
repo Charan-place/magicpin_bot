@@ -28,6 +28,13 @@ conv = ConversationManager()
 composer = Composer()
 
 
+# ─── root (keeps Render from serving 404 on cold-start) ──────────────────────
+
+@app.get("/")
+async def root():
+    return {"status": "ok", "service": "vera-bot"}
+
+
 # ─── healthz + metadata ───────────────────────────────────────────────────────
 
 @app.get("/v1/healthz")
@@ -244,14 +251,9 @@ async def reply(body: ReplyBody):
         conv.end_conversation(conv_id)
         if merchant_id:
             conv.suppress_merchant(merchant_id, days=30)
-        # Brief apology then close
-        apology = "Maafi — aage message nahi karunga. Kabhi zaroorat ho toh 'Hi Vera' likhein. 🙏"
-        conv.record_sent_body(conv_id, apology)
         return {
-            "action": "send",
-            "body": apology,
-            "cta": "none",
-            "rationale": "Merchant hostile/opt-out. One-line apology + graceful exit. Suppressing merchant 30d.",
+            "action": "end",
+            "rationale": "Merchant explicitly opted out / hostile. Closing conversation. Suppressing all triggers for this merchant 30 days.",
         }
 
     # ── commitment / intent transition ───────────────────────────────────────
