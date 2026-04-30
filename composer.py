@@ -15,7 +15,7 @@ except ImportError:
     _SSL_CONTEXT = ssl.create_default_context()
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
-MODEL = os.environ.get("COMPOSER_MODEL", "google/gemma-4-26b-a4b-it:free")
+MODEL = os.environ.get("COMPOSER_MODEL", "google/gemini-2.0-flash-001")
 
 # Trigger kind → composition mode
 TRIGGER_MODE: dict = {
@@ -240,9 +240,11 @@ Consent scope: {customer.get('consent', {}).get('scope', [])}
 
 
 FALLBACK_MODELS = [
-    "google/gemma-4-26b-a4b-it:free",
-    "openai/gpt-oss-120b:free",
-    "google/gemma-3-12b-it:free",
+    MODEL,                              # primary (from env)
+    "google/gemini-2.0-flash-001",      # Gemini 2.0 Flash — fast, high quality
+    "google/gemma-4-26b-a4b-it:free",   # free fallback 1
+    "openai/gpt-oss-120b:free",         # free fallback 2
+    "google/gemma-3-12b-it:free",       # free fallback 3
 ]
 
 
