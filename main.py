@@ -2,7 +2,15 @@
 import os
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Optional
+
+# Load .env for local development (no-op if python-dotenv not installed)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent / ".env")
+except ImportError:
+    pass
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
