@@ -51,7 +51,7 @@ async def metadata():
     return {
         "team_name": "Satya Sai Charan Narra",
         "team_members": ["Satya Sai Charan Narra"],
-        "model": "deepseek/deepseek-chat:free via OpenRouter",
+        "model": "google/gemini-2.0-flash-001 via OpenRouter",
         "approach": (
             "3-layer prompt stack (system+mode+context). Trigger-kind dispatch to "
             "operator-mode (contrarian insight) or assistant-mode (artifact draft). "

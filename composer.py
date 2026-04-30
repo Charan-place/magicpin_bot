@@ -279,13 +279,14 @@ Consent scope: {customer.get('consent', {}).get('scope', [])}
     return block
 
 
-FALLBACK_MODELS = [
-    MODEL,                              # primary (from env)
-    "google/gemini-2.0-flash-001",      # Gemini 2.0 Flash — fast, high quality
-    "google/gemma-4-26b-a4b-it:free",   # free fallback 1
-    "openai/gpt-oss-120b:free",         # free fallback 2
-    "google/gemma-3-12b-it:free",       # free fallback 3
+_base_fallbacks = [
+    "google/gemini-2.0-flash-001",
+    "google/gemma-4-26b-a4b-it:free",
+    "openai/gpt-oss-120b:free",
+    "google/gemma-3-12b-it:free",
 ]
+# Primary model first, then fallbacks (deduplicated)
+FALLBACK_MODELS = [MODEL] + [m for m in _base_fallbacks if m != MODEL]
 
 
 def _call_llm(messages: list, timeout: int = 22) -> str:
