@@ -21,6 +21,7 @@ class ConversationState:
     turn_number: int = 1
     history: list = field(default_factory=list)
     status: str = "active"  # active | ended | waiting
+    from_role: str = "merchant"  # merchant | customer — set per turn before calling respond()
 
 
 # Module-level singletons (shared with main.py state if imported together)
@@ -111,17 +112,33 @@ async def _respond_async(state: ConversationState, merchant_message: str) -> dic
         state.turn_number += 1
         return result
 
-    # ── general reply ────────────────────────────────────────────────────────
+    # ── general reply — branch on role ──────────────────────────────────────
     history = _conv.get_history(conv_id)
-    state.history.append({"role": "merchant", "message": msg})
-    _conv.add_turn(conv_id, "merchant", msg)
 
-    result = await _composer.compose_reply(
-        merchant=merchant,
-        category=category,
-        merchant_message=msg,
-        history=history,
-    )
+    # Detect customer vs merchant role from conversation state
+    is_customer_reply = getattr(state, "from_role", "merchant") == "customer"
+
+    if is_customer_reply:
+        customer_id = state.customer_id
+        customer = _store.get("customer", customer_id) if customer_id else None
+        state.history.append({"role": "customer", "message": msg})
+        _conv.add_turn(conv_id, "customer", msg)
+        result = await _composer.compose_customer_reply(
+            merchant=merchant,
+            category=category,
+            customer=customer,
+            customer_message=msg,
+            history=history,
+        )
+    else:
+        state.history.append({"role": "merchant", "message": msg})
+        _conv.add_turn(conv_id, "merchant", msg)
+        result = await _composer.compose_reply(
+            merchant=merchant,
+            category=category,
+            merchant_message=msg,
+            history=history,
+        )
 
     action = result.get("action", "send")
     if action == "end":

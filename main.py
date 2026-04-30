@@ -269,16 +269,29 @@ async def reply(body: ReplyBody):
             conv.add_turn(conv_id, "vera", result["body"])
         return result
 
-    # ── general reply ────────────────────────────────────────────────────────
+    # ── general reply — branch on from_role ─────────────────────────────────
     history = conv.get_history(conv_id)
-    conv.add_turn(conv_id, "merchant", message)
 
-    result = await composer.compose_reply(
-        merchant=merchant,
-        category=category,
-        merchant_message=message,
-        history=history,
-    )
+    if body.from_role == "customer":
+        # Customer reply: load customer context, open with customer name
+        customer_id = body.customer_id
+        customer = store.get("customer", customer_id) if customer_id else None
+        conv.add_turn(conv_id, "customer", message)
+        result = await composer.compose_customer_reply(
+            merchant=merchant,
+            category=category,
+            customer=customer,
+            customer_message=message,
+            history=history,
+        )
+    else:
+        conv.add_turn(conv_id, "merchant", message)
+        result = await composer.compose_reply(
+            merchant=merchant,
+            category=category,
+            merchant_message=message,
+            history=history,
+        )
 
     action = result.get("action", "send")
 

@@ -492,6 +492,84 @@ Return JSON: {{"action": "send", "body": "...", "cta": "binary_confirm_cancel", 
                 "rationale": "Commitment detected; action mode. Fallback with merchant-specific anchor.",
             }
 
+    async def compose_customer_reply(
+        self,
+        merchant: dict,
+        category: dict,
+        customer: Optional[dict],
+        customer_message: str,
+        history: list,
+    ) -> dict:
+        """Reply to a customer message — MUST open with customer name, send_as=merchant_on_behalf."""
+        customer_name = ""
+        customer_lang = "en"
+        if customer:
+            customer_name = customer.get("identity", {}).get("name", "")
+            customer_lang = customer.get("identity", {}).get("language_pref", "en")
+
+        merchant_name = merchant.get("identity", {}).get("name", "")
+        voice = category.get("voice", {})
+        active_offers = [o for o in merchant.get("offers", []) if o.get("status") == "active"]
+
+        history_text = "\n".join(
+            [f"[{h['role']}]: {h['message']}" for h in history[-4:]]
+        ) if history else "No prior turns."
+
+        use_hindi = "hi" in customer_lang or "hi" in customer_lang.split("-")
+
+        prompt = f"""A customer has replied in a booking/recall conversation managed by {merchant_name}.
+
+CUSTOMER NAME: {customer_name}  ← OPEN YOUR REPLY WITH THIS NAME, not the merchant name
+Customer language preference: {customer_lang}
+Customer message: "{customer_message}"
+
+Merchant: {merchant_name}
+Category: {category.get('slug', '')} | Voice: {voice.get('tone', 'warm_clinical')}
+Taboos: {voice.get('vocab_taboo', [])}
+Active offers: {[o.get('title') for o in active_offers]}
+Use Hindi-English mix: {use_hindi}
+
+Recent conversation:
+{history_text}
+
+CRITICAL RULES:
+- First word(s) MUST be the customer's name: "{customer_name}" — never open with merchant name
+- send_as = "merchant_on_behalf" always
+- No medical claims, no "guaranteed"
+- Script consistency: if body is Hindi, keep dates/times in numerals only (no mixing Devanagari digits with English month names mid-sentence). Prefer: "Wed 5 Nov, 6pm" (full English) OR pure Hindi date. Not mixed scripts in same date token.
+- Confirm the action requested by customer concretely (date, time, price)
+- Keep under 40 words
+- Single CTA in last sentence
+
+Return JSON: {{"action": "send", "body": "...", "cta": "...", "send_as": "merchant_on_behalf", "rationale": "..."}}"""
+
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ]
+        try:
+            raw = _call_llm(messages)
+            result = _parse_llm_json(raw)
+            body = re.sub(r"https?://\S+", "", result.get("body", "")).strip()
+            result["send_as"] = "merchant_on_behalf"
+            return {
+                "action": result.get("action", "send"),
+                "body": body,
+                "cta": result.get("cta", "none"),
+                "send_as": "merchant_on_behalf",
+                "rationale": result.get("rationale", "Customer reply; opened with customer name."),
+            }
+        except Exception as exc:
+            print(f"compose_customer_reply error: {exc}")
+            fallback_body = f"{customer_name}, booking confirmed." if customer_name else "Booking confirmed."
+            return {
+                "action": "send",
+                "body": fallback_body,
+                "cta": "none",
+                "send_as": "merchant_on_behalf",
+                "rationale": "Fallback customer reply.",
+            }
+
     async def compose_reply(
         self,
         merchant: dict,
